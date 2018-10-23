@@ -4,7 +4,7 @@
 Programa cliente UDP que abre un socket a un servidor
 """
 
-import socket
+import socket, sys
 
 # Constantes. Dirección IP del servidor y contenido a enviar
 SERVER = sys.argv[1]
