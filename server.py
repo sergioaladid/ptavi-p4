@@ -4,40 +4,55 @@
 Clase (y programa principal) para un servidor de eco en UDP simple
 """
 
-import socketserver, sys
+import socketserver as SS
+import sys
+import time
+import json
 
 
-class SIPRegisterHandler(socketserver.DatagramRequestHandler):
+class SIPRegisterHandler(SS.DatagramRequestHandler):
  
     Dicc = {}
+    def register2json(self):
+       json_file = open("registered.json", "w")
+       json.dump(self.Dicc, json_file, separators=(',', ': '), indent=4)
+       json_file.close()
+    def json2registered(self):
+       try:
+           with open("registered.json") as JsonFile:
+               self.Dicc = json.load(JsonFile)
+       except FileNotFoundError:
+           self.Dicc = {}
 
     def handle(self):
        
         self.wfile.write(b"Hemos recibido tu peticion")
-        mensaje = line.decode('utf-8')
-        print("El cliente nos manda: ", mensaje)
+        self.json2registered()
+        msg = self.rfile.read().decode('utf-8')
+        print("El cliente nos manda ", msg)
         
-        for line in self.rfile:
-            Direccion = msg[msg.find("sip:") + 4 : msg.rfind(" SIP/2.0")]
-            Expires = int(msg[msg.find("Expires: ") + 9 : msg.find("\r\n\r\n")])
-            Dir_Ip = self.client_address[0]
-            mensaje = line.decode('utf-8')
-        
-            if Expires == 0:
-                del self.Dicc[Direccion]
-				
-            elif Expires > 0:
-                self.Dicc[Dir] = {'address': Dir_Ip, 'Expires': Expires}
-            print(Dicc)
-			
-            self.wfile.write(b"SIP/2.0 200 OK\r\n\r\n")
+        if msg[:8] == "REGISTER":
+            Dir = msg[msg.find("sip:") + 4: msg.rfind(" SIP/2.0")]
+            Ip = self.client_address[0]
+            Exp = int(msg[msg.find("Expires: ") + 9: msg.find("\r\n\r\n")])
+            time_ex = Exp + int(time.time())
+            str_ex = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(time_ex))
+            if Exp == 0:
+                del self.Dicc[Dir]
+                self.register2json()
+            elif Exp > 0:
+                self.Dicc[Dir] = {'address': Ip, 'Expires': str_ex}
+                self.register2json()
+            self.wfile.write(b" SIP/2.0 200 OK\r\n\r\n")
 
 if __name__ == "__main__":
     
-    serv = socketserver.UDPServer(('', int(sys.argv[1])), SIPRegisterHandler) 
+    try:
+        serv = SS.UDPServer(('', int(sys.argv[1])), SIPRegisterHandler)
+    except:
+        sys.exit("Argument error")
     print("Lanzando servidor UDP de eco...")
-    
     try:
         serv.serve_forever()
     except KeyboardInterrupt:
-        print("Finalizado servidor")
+         print("Finalizado servidor")
